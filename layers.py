@@ -32,3 +32,26 @@ class DenseTied(Dense):
         if self.activation is not None:
             output = self.activation(output)
         return output
+
+
+class CovarianceLoss(Layer):
+
+    def __init__(self, batch_size, weight, **kwargs):
+        self.weight = weight
+        self.batch_size = batch_size
+        super().__init__(**kwargs)
+
+    def call(self, inputs, **kwargs):
+        x = inputs - K.mean(inputs, axis=0)  # minus mean of each var over samples
+        cov = K.dot(K.transpose(x), x)
+        cov -= cov * K.eye(K.shape(cov)[0])  # minus diagonal
+        cov = K.square(cov)  # to get positive values only
+        cov *= (1 / self.batch_size)
+        loss = K.sum(cov) * self.weight  # to change influence of covariance on loss
+
+        self.add_loss(loss, inputs=inputs)
+
+        return inputs
+
+    def get_output_shape_for(self, input_shape):
+        return input_shape
